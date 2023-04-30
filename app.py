@@ -1,6 +1,6 @@
 from flask import Flask
 
-from src.secretmanager import SecretManager
+from api import SecretManager
 
 app = Flask(__name__)
 
