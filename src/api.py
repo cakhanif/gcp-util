@@ -1,5 +1,6 @@
 from flask import jsonify, request
-from google.cloud import secretmanager
+import json
+from google.cloud import secretmanager, compute_v1 as compute
 
 class SecretManager:
     def view():
@@ -84,5 +85,154 @@ class SecretManager:
         # Return a JSON response indicating whether the secret was created or updated successfully
         response = {
             'message': message
+        }
+        return jsonify(response)
+    
+
+class Instances:
+    def list():
+
+        # get the request data
+        request_data = request.get_json()
+
+        # Extract the project ID from the request data
+        project_id = request_data['project_id']
+
+        # Create a client object to interact with the Compute Engine API
+        client = compute.InstancesClient()
+
+        # Retrieve a list of all regions and zones
+        list = client.aggregated_list(project=project_id)
+        # Initialize an empty list to store all compute engine instances
+        all_compute_engines = []
+
+        # # Loop over all regions and zones to retrieve the compute engine instances
+        # for region in list['items']:
+        #     for zone in region['zones']:
+        #         zone_name = zone.split('/')[-1]
+        #         instances = client.instances().list(project=project_id, zone=zone_name)
+        #         if 'items' in instances:
+        #             all_compute_engines.extend(instances['items'])
+
+        # response = {
+        #     'compute_engines': all_compute_engines
+        # }
+        response = list
+
+        # Return the list of all compute engines as a JSON response
+        return jsonify(response)
+    
+    def view():
+        """
+        Retrieves the details of a virtual machine from Google Compute Engine.
+
+        Request Body:
+            project_id (str): The ID of the project in which the virtual machine exists.
+            zone (str): The zone in which the virtual machine exists.
+            instance_id (str): The ID of the virtual machine to retrieve.
+
+        Returns:
+            A JSON response containing the details of the virtual machine.
+        """
+
+        # Get the request data
+        request_data = request.get_json()
+
+        # Extract the project ID, zone, and instance ID from the request data
+        project_id = request_data['project_id']
+        zone = request_data['zone']
+        instance_id = request_data['instance_id']
+
+        # Create the Compute Engine client
+        client = compute.InstancesClient()
+
+        # Build the instance name
+        name = f"projects/{project_id}/zones/{zone}/instances/{instance_id}"
+
+        # Retrieve the instance
+        response = client.get(project=project_id, zone=zone, instance=instance_id)
+        instance = response.name
+
+        # Return a JSON response containing the details of the virtual machine
+        response = {
+            'instance': instance
+        }
+        return jsonify(response)
+    
+    def get_machine_types():
+        """
+        Retrieves the available machine types from Google Compute Engine.
+
+        Request Body:
+            project_id (str): The ID of the project in which to retrieve the machine types.
+            zone (str): The zone in which to retrieve the machine types.
+
+        Returns:
+            A JSON response containing the available machine types.
+        """
+
+        # Get the request data
+        request_data = request.get_json()
+
+        # Extract the project ID and zone from the request data
+        project_id = request_data['project_id']
+        zone = request_data['zone']
+
+        # Create the Compute Engine client
+        client = compute.MachineTypesClient()
+
+        # Retrieve the machine types
+        response = client.list(project=project_id, zone=zone)
+        machine_types = [machine_type.name for machine_type in response]
+
+        # Return a JSON response containing the available machine types
+        response = {
+            'machine_types': machine_types
+        }
+        return jsonify(response)
+
+    def create():
+        """
+        Creates a new virtual machine in Google Compute Engine.
+
+        Request Body:
+            project_id (str): The ID of the project in which to create the virtual machine.
+            zone (str): The zone in which to create the virtual machine.
+            instance_id (str): The ID to assign to the virtual machine.
+            machine_type (str): The machine type to assign to the virtual machine.
+            source_image (str): The source image to use for the virtual machine.
+
+        Returns:
+            A JSON response containing a message indicating whether the virtual machine was created successfully.
+        """
+
+        # Get the request data
+        request_data = request.get_json()
+
+        # Extract the project ID, zone, instance ID, machine type, and source image from the request data
+        project_id = request_data['project_id']
+        zone = request_data['zone']
+        instance_id = request_data['instance_id']
+        machine_type = request_data['machine_type']
+        source_image = request_data['source_image']
+
+        # Create the Compute Engine client
+        client = compute.ComputeEngineClient()
+
+        # Build the instance name
+        name = f"projects/{project_id}/zones/{zone}/instances/{instance_id}"
+
+        # Build the instance config
+        machine_type = f"projects/{project_id}/zones/{zone}/machineTypes/{machine_type}"
+        source_image = f"projects/{project_id}/global/images/{source_image}"
+        config = compute.Instance(name=name, machine_type=machine_type, source_image=source_image)
+
+        # Create the instance
+        operation = client.insert_instance(request={"project": project_id, "zone": zone, "instance_resource": config})
+        operation.wait()
+
+        # Return a JSON response indicating whether the virtual machine was created successfully
+        response = {
+            'message': f"Instance '{instance_id}' created in project '{project_id}'"
         }
         return jsonify(response)
