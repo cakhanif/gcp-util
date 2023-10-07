@@ -1,0 +1,23 @@
+name: Build and Push Docker
+
+on:
+  push:
+    branches:
+     - main
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4.1.0
+
+    - name: Login to Docker Hub
+      run: docker login -u ${{ secrets.DOCKERUSERNAME }} -p ${{ secrets.DOCKERTOKEN }}
+
+    - name: Build Docker Image
+      run: docker build -t cakhanif/gcp-util:latest .
+
+    - name: Push Docker Images
+      run: docker push cakhanif/gcp-util:latest
