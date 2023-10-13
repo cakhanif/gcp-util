@@ -4,6 +4,8 @@ on:
   push:
     branches:
      - "*"
+  issue_comment:
+    types: [created]
 
 jobs:
   build-and-push:
