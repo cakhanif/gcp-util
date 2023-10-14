@@ -1,22 +1,111 @@
 name: Build and Push Docker
 
 on:
+  push:
+    branches:
+      - "*"
   issue_comment:
+    
+permissions:
+  contents: 'read'
+  id-token: 'write'
 
 jobs:
-  build-and-push:
-    if: contains(github.event.comment.body, '/deploy')
+  deploy_dev:
+    if: contains(github.event.comment.body, '/deploy_dev')
     runs-on: ubuntu-latest
 
     steps:
     - name: Checkout Code
       uses: actions/checkout@v4.1.0
 
-    - name: Login to Docker Hub
-      run: docker login -u ${{ secrets.DOCKERUSERNAME }} -p ${{ secrets.DOCKERTOKEN }}
+    - id: 'auth'
+      name: 'Authenticate to Google Cloud'
+      uses: 'google-github-actions/auth@v1'
+      with:
+        token_format: 'access_token'
+        workload_identity_provider: 'projects/397995110920/locations/global/workloadIdentityPools/flik-workload-identity-pool-cicd/providers/flik-wip-provider-github-action'
+        service_account: 'flik-external-sa-github-action@flik-infra.iam.gserviceaccount.com'
+
+    - name: Setup GCP SDK
+      uses: google-github-actions/setup-gcloud@v1
+      with:
+        project_id: flik-infra
+  
+    - name: Login to GAR
+      id: login-gar
+      uses: docker/login-action@v3
+      with:
+        registry: asia-docker.pkg.dev/flik-infra
+        username: oauth2accesstoken
+        password: ${{ steps.auth.outputs.access_token }}
 
     - name: Build Docker Image
-      run: docker build -t cakhanif/gcp-util:latest .
+      run: docker build -t asia-docker.pkg.dev/flik-infra/dev/gcp-util .
 
     - name: Push Docker Images
-      run: docker push cakhanif/gcp-util:latest
+      run: docker push asia-docker.pkg.dev/flik-infra/dev/gcp-util
+    
+    - id: 'deploy'
+      uses: 'google-github-actions/deploy-cloudrun@v1'
+      with:
+        service: gcp-util
+        image: 'asia-docker.pkg.dev/flik-infra/dev/gcp-util:${GITHUB_SHA::6}'
+  
+  deploy_pr:
+    if: contains(github.event.comment.body, '/deploy_this_pr')
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4.1.0
+
+    - name: Get Pull Request Number
+      run: echo "PULL_NUMBER=$(echo "$GITHUB_REF" | awk -F / '{print $3}')" >> $GITHUB_ENV
+      shell: bash
+
+    - id: 'auth'
+      name: 'Authenticate to Google Cloud'
+      uses: 'google-github-actions/auth@v1'
+      with:
+        token_format: 'access_token'
+        workload_identity_provider: 'projects/397995110920/locations/global/workloadIdentityPools/flik-workload-identity-pool-cicd/providers/flik-wip-provider-github-action'
+        service_account: 'flik-external-sa-github-action@flik-infra.iam.gserviceaccount.com'
+
+    - name: Setup GCP SDK
+      uses: google-github-actions/setup-gcloud@v1
+      with:
+        project_id: flik-infra
+  
+    - name: Login to GAR
+      id: login-gar
+      uses: docker/login-action@v3
+      with:
+        registry: asia-docker.pkg.dev/flik-infra
+        username: oauth2accesstoken
+        password: ${{ steps.auth.outputs.access_token }}
+
+    - name: Build Docker Image
+      run: docker build -t asia-docker.pkg.dev/flik-infra/dev/${{ github.head_ref }}-gcp-util:${GITHUB_SHA::6} .
+
+    - name: Push Docker Images
+      run: docker push asia-docker.pkg.dev/flik-infra/dev/${{ github.head_ref }}-gcp-util:${GITHUB_SHA::6}
+
+    - id: 'deploy'
+      uses: 'google-github-actions/deploy-cloudrun@v1'
+      with:
+        service: ${{ github.head_ref }}${{ env.PULL_NUMBER }}-gcp-util
+        image: 'asia-docker.pkg.dev/flik-infra/dev/${{ github.head_ref }}-gcp-util:${GITHUB_SHA::6}'
+
+    - uses: actions/github-script@v3
+      with:
+        github-token: ${{secrets.GITHUB_TOKEN}}
+        script: |
+          github.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: '👋 ${{ steps.deploy.outputs.url }}'
+          })
+    - name: 'Use output'
+      run: 'curl "${{ steps.deploy.outputs.url }}"'
