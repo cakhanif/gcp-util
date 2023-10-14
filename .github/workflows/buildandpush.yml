@@ -9,6 +9,7 @@ on:
 permissions:
   contents: 'read'
   id-token: 'write'
+  pull-requests: write
 
 jobs:
   deploy_dev:
@@ -101,8 +102,19 @@ jobs:
         flags: |
           --allow-unauthenticated
 
-    - name: Comment PR
-      uses: thollander/actions-comment-pull-request@v2
+    # - name: Comment PR
+    #   uses: thollander/actions-comment-pull-request@v2
+    #   with:
+    #     message: |
+    #       ${{ steps.deploy.outputs.url }} :rocket:
+    
+    - uses: actions/github-script@v3
       with:
-        message: |
-          ${{ steps.deploy.outputs.url }} :rocket:
+        github-token: ${{secrets.GITHUB_TOKEN}}
+        script: |
+          github.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: '👋 ${{ steps.deploy.outputs.url }}'
+          })
