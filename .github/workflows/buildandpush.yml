@@ -5,6 +5,7 @@ on:
     branches:
       - "*"
   issue_comment:
+  pull_request:
     
 permissions:
   contents: 'read'
@@ -41,6 +42,10 @@ jobs:
         username: oauth2accesstoken
         password: ${{ steps.auth.outputs.access_token }}
 
+    - name: Get branch names
+      id: branch-name
+      uses: tj-actions/branch-names@v7
+      
     - name: Build Docker Image
       run: docker build -t asia-docker.pkg.dev/flik-infra/dev/gcp-util:${{ github.sha }} .
 
@@ -87,16 +92,16 @@ jobs:
         password: ${{ steps.auth.outputs.access_token }}
 
     - name: Build Docker Image
-      run: docker build -t asia-docker.pkg.dev/flik-infra/dev/${{ github.ref_name }}-gcp-util:${{ github.sha }} .
+      run: docker build -t asia-docker.pkg.dev/flik-infra/dev/${{ steps.branch-name.outputs.head_ref_branch }}-gcp-util:${{ github.sha }} .
 
     - name: Push Docker Images
-      run: docker push asia-docker.pkg.dev/flik-infra/dev/${{ github.ref_name }}-gcp-util:${{ github.sha }}
+      run: docker push asia-docker.pkg.dev/flik-infra/dev/${{ steps.branch-name.outputs.head_ref_branch }}-gcp-util:${{ github.sha }}
 
     - id: 'deploy'
       uses: 'google-github-actions/deploy-cloudrun@v1'
       with:
-        service: ${{ github.ref_name }}-gcp-util
-        image: 'asia-docker.pkg.dev/flik-infra/dev/${{ github.ref_name }}-gcp-util:${{ github.sha }}'
+        service: ${{ steps.branch-name.outputs.head_ref_branch }}-gcp-util
+        image: 'asia-docker.pkg.dev/flik-infra/dev/${{ steps.branch-name.outputs.head_ref_branch }}-gcp-util:${{ github.sha }}'
         region: asia-southeast2
         project_id: flik-infra
         flags: |
