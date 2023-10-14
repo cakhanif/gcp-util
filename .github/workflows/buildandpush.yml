@@ -53,6 +53,8 @@ jobs:
         image: 'asia-docker.pkg.dev/flik-infra/dev/gcp-util:${{ github.sha }}'
         region: asia-southeast2
         project_id: flik-infra
+        flags: |
+          --allow-unauthenticated
   
   deploy_pr:
     if: contains(github.event.comment.body, '/deploy_this_pr')
@@ -96,6 +98,8 @@ jobs:
         image: 'asia-docker.pkg.dev/flik-infra/dev/${{ github.event.pull_request.base.ref }}-gcp-util:${{ github.sha }}'
         region: asia-southeast2
         project_id: flik-infra
+        flags: |
+          --allow-unauthenticated
 
     - uses: actions/github-script@v3
       with:
