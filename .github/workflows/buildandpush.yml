@@ -5,7 +5,6 @@ on:
     branches:
       - "*"
   issue_comment:
-  pull_request:
     
 permissions:
   contents: 'read'
