@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   deploy_dev:
-    if: contains(github.event.comment.body, '/deploy_dev')
+    if: github.event.issue.pull_request && contains(github.event.comment.body, '/deploy_dev')
     runs-on: ubuntu-latest
 
     steps:
