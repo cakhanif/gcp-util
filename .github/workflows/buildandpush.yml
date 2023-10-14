@@ -86,6 +86,9 @@ jobs:
     - name: Get branch names
       id: branch-name
       uses: tj-actions/branch-names@v7
+
+    - name: Test
+      run: echo ${{ github.event.pull_request.head }}
   
     - name: Login to GAR
       id: login-gar
@@ -96,7 +99,7 @@ jobs:
         password: ${{ steps.auth.outputs.access_token }}
 
     - name: Build Docker Image
-      run: docker build -t asia-docker.pkg.dev/flik-infra/dev/${{ steps.branch-name.outputs.head_ref_branch }}-gcp-util:${{ github.sha }} .
+      run: docker build -t asia-docker.pkg.dev/flik-infra/dev/${{ github.event.pull_request.head }}-gcp-util:${{ github.sha }} .
 
     - name: Push Docker Images
       run: docker push asia-docker.pkg.dev/flik-infra/dev/${{ steps.branch-name.outputs.head_ref_branch }}-gcp-util:${{ github.sha }}
