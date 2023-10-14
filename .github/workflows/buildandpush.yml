@@ -92,16 +92,16 @@ jobs:
         password: ${{ steps.auth.outputs.access_token }}
 
     - name: Build Docker Image
-      run: docker build -t asia-docker.pkg.dev/flik-infra/dev/${{ steps.branch-name.outputs.ref_branch }}-gcp-util:${{ github.sha }} .
+      run: docker build -t asia-docker.pkg.dev/flik-infra/dev/${{ steps.branch-name.outputs.current_branch }}-gcp-util:${{ github.sha }} .
 
     - name: Push Docker Images
-      run: docker push asia-docker.pkg.dev/flik-infra/dev/${{ steps.branch-name.outputs.ref_branch }}-gcp-util:${{ github.sha }}
+      run: docker push asia-docker.pkg.dev/flik-infra/dev/${{ steps.branch-name.outputs.current_branch }}-gcp-util:${{ github.sha }}
 
     - id: 'deploy'
       uses: 'google-github-actions/deploy-cloudrun@v1'
       with:
-        service: ${{ steps.branch-name.outputs.ref_branch }}-gcp-util
-        image: 'asia-docker.pkg.dev/flik-infra/dev/${{ steps.branch-name.outputs.ref_branch }}-gcp-util:${{ github.sha }}'
+        service: ${{ steps.branch-name.outputs.current_branch }}-gcp-util
+        image: 'asia-docker.pkg.dev/flik-infra/dev/${{ steps.branch-name.outputs.current_branch }}-gcp-util:${{ github.sha }}'
         region: asia-southeast2
         project_id: flik-infra
         flags: |
