@@ -41,16 +41,18 @@ jobs:
         password: ${{ steps.auth.outputs.access_token }}
 
     - name: Build Docker Image
-      run: docker build -t asia-docker.pkg.dev/flik-infra/dev/gcp-util .
+      run: docker build -t asia-docker.pkg.dev/flik-infra/dev/gcp-util:${{ github.sha }} .
 
     - name: Push Docker Images
-      run: docker push asia-docker.pkg.dev/flik-infra/dev/gcp-util
+      run: docker push asia-docker.pkg.dev/flik-infra/dev/gcp-util:${{ github.sha }}
     
     - id: 'deploy'
       uses: 'google-github-actions/deploy-cloudrun@v1'
       with:
         service: gcp-util
-        image: 'asia-docker.pkg.dev/flik-infra/dev/gcp-util:${GITHUB_SHA::6}'
+        image: 'asia-docker.pkg.dev/flik-infra/dev/gcp-util:${{ github.sha }}'
+        region: asia-southeast2
+        project: flik-infra
   
   deploy_pr:
     if: contains(github.event.comment.body, '/deploy_this_pr')
@@ -86,16 +88,18 @@ jobs:
         password: ${{ steps.auth.outputs.access_token }}
 
     - name: Build Docker Image
-      run: docker build -t asia-docker.pkg.dev/flik-infra/dev/${{ github.head_ref }}-gcp-util:${GITHUB_SHA::6} .
+      run: docker build -t asia-docker.pkg.dev/flik-infra/dev/${{ github.head_ref }}-gcp-util:${{ github.sha }} .
 
     - name: Push Docker Images
-      run: docker push asia-docker.pkg.dev/flik-infra/dev/${{ github.head_ref }}-gcp-util:${GITHUB_SHA::6}
+      run: docker push asia-docker.pkg.dev/flik-infra/dev/${{ github.head_ref }}-gcp-util:${{ github.sha }}
 
     - id: 'deploy'
       uses: 'google-github-actions/deploy-cloudrun@v1'
       with:
         service: ${{ github.head_ref }}${{ env.PULL_NUMBER }}-gcp-util
-        image: 'asia-docker.pkg.dev/flik-infra/dev/${{ github.head_ref }}-gcp-util:${GITHUB_SHA::6}'
+        image: 'asia-docker.pkg.dev/flik-infra/dev/${{ github.head_ref }}-gcp-util:${{ github.sha }}'
+        region: asia-southeast2
+        project: flik-infra
 
     - uses: actions/github-script@v3
       with:
