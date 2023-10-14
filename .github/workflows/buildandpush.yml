@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   deploy_dev:
-    if: contains(github.event.comment.body, '/deploy_dev')
+    if: github.event.issue.pull_request && contains(github.event.comment.body, '/deploy_dev')
     runs-on: ubuntu-latest
 
     steps:
@@ -86,6 +86,11 @@ jobs:
     - name: Get branch names
       id: branch-name
       uses: tj-actions/branch-names@v7
+      
+    - uses: benjlevesque/short-sha@v2.2
+      id: short-sha
+      with:
+        length: 7
 
     - name: Test
       run: echo ${{ github.event.pull_request.head }}
@@ -99,16 +104,16 @@ jobs:
         password: ${{ steps.auth.outputs.access_token }}
 
     - name: Build Docker Image
-      run: docker build -t asia-docker.pkg.dev/flik-infra/dev/${{ github.event.pull_request.head }}-gcp-util:${{ github.sha }} .
+      run: docker build -t asia-docker.pkg.dev/flik-infra/dev/${{ steps.short-sha.outputs.sha }}-gcp-util:${{ github.sha }} .
 
     - name: Push Docker Images
-      run: docker push asia-docker.pkg.dev/flik-infra/dev/${{ steps.branch-name.outputs.head_ref_branch }}-gcp-util:${{ github.sha }}
+      run: docker push asia-docker.pkg.dev/flik-infra/dev/${{ steps.short-sha.outputs.sha }}-gcp-util:${{ github.sha }}
 
     - id: 'deploy'
       uses: 'google-github-actions/deploy-cloudrun@v1'
       with:
-        service: ${{ steps.branch-name.outputs.head_ref_branch }}-gcp-util
-        image: 'asia-docker.pkg.dev/flik-infra/dev/${{ steps.branch-name.outputs.head_ref_branch }}-gcp-util:${{ github.sha }}'
+        service: ${{ steps.short-sha.outputs.sha }}-gcp-util
+        image: 'asia-docker.pkg.dev/flik-infra/dev/${{ steps.short-sha.outputs.sha }}-gcp-util:${{ github.sha }}'
         region: asia-southeast2
         project_id: flik-infra
         flags: |
