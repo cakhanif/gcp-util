@@ -52,7 +52,7 @@ jobs:
         service: gcp-util
         image: 'asia-docker.pkg.dev/flik-infra/dev/gcp-util:${{ github.sha }}'
         region: asia-southeast2
-        project: flik-infra
+        project_id: flik-infra
   
   deploy_pr:
     if: contains(github.event.comment.body, '/deploy_this_pr')
@@ -99,7 +99,7 @@ jobs:
         service: ${{ github.head_ref }}${{ env.PULL_NUMBER }}-gcp-util
         image: 'asia-docker.pkg.dev/flik-infra/dev/${{ github.head_ref }}-gcp-util:${{ github.sha }}'
         region: asia-southeast2
-        project: flik-infra
+        project_id: flik-infra
 
     - uses: actions/github-script@v3
       with:
