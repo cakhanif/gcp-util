@@ -101,15 +101,8 @@ jobs:
         flags: |
           --allow-unauthenticated
 
-    - uses: actions/github-script@v3
+    - name: Comment PR
+      uses: thollander/actions-comment-pull-request@v2
       with:
-        github-token: ${{secrets.GITHUB_TOKEN}}
-        script: |
-          github.issues.createComment({
-            issue_number: context.issue.number,
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            body: '👋 ${{ steps.deploy.outputs.url }}'
-          })
-    - name: 'Use output'
-      run: 'curl "${{ steps.deploy.outputs.url }}"'
+        message: |
+          ${{ steps.deploy.outputs.url }} :rocket:
