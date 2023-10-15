@@ -6,6 +6,7 @@ on:
       - "*"
   issue_comment:
   pull_request:
+    types: [opened,closed]
     
 permissions:
   contents: 'read'
@@ -95,7 +96,9 @@ jobs:
         length: 5
 
     - name: Test
-      run: echo ${{ github.event.pull_request.head }}
+      run: | 
+        echo ${{ github.event.pull_request.head }}
+        echo ${{ github.head_ref }}
   
     - name: Login to GAR
       id: login-gar
@@ -133,7 +136,7 @@ jobs:
           })
 
   delete_pr:
-    if: github.event.pull_request.merged == true
+    if: github.event.pull_request.merged == true || github.event.issue.pull_request && contains(github.event.comment.body, '/delete_deploy')
     runs-on: ubuntu-latest
 
     steps:
