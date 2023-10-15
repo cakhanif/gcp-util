@@ -12,6 +12,8 @@ permissions:
   id-token: 'write'
   pull-requests: write
 
+env:
+  APP_NAME: gcp-util
 jobs:
   deploy_dev:
     if: github.event.issue.pull_request && contains(github.event.comment.body, '/deploy_dev')
@@ -47,16 +49,16 @@ jobs:
       uses: tj-actions/branch-names@v7
       
     - name: Build Docker Image
-      run: docker build -t asia-docker.pkg.dev/flik-infra/dev/gcp-util:${{ github.sha }} .
+      run: docker build -t asia-docker.pkg.dev/flik-infra/dev/${{ env.APP_NAME }}:${{ github.sha }} .
 
     - name: Push Docker Images
-      run: docker push asia-docker.pkg.dev/flik-infra/dev/gcp-util:${{ github.sha }}
+      run: docker push asia-docker.pkg.dev/flik-infra/dev/${{ env.APP_NAME }}:${{ github.sha }}
     
     - id: 'deploy'
       uses: 'google-github-actions/deploy-cloudrun@v1'
       with:
-        service: gcp-util
-        image: 'asia-docker.pkg.dev/flik-infra/dev/gcp-util:${{ github.sha }}'
+        service: ${{ env.APP_NAME }}
+        image: 'asia-docker.pkg.dev/flik-infra/dev/${{ env.APP_NAME }}:${{ github.sha }}'
         region: asia-southeast2
         project_id: flik-infra
         flags: |
@@ -104,16 +106,16 @@ jobs:
         password: ${{ steps.auth.outputs.access_token }}
 
     - name: Build Docker Image
-      run: docker build -t asia-docker.pkg.dev/flik-infra/dev/${{ steps.short-sha.outputs.sha }}-gcp-util:${{ github.sha }} .
+      run: docker build -t asia-docker.pkg.dev/flik-infra/dev/${{ steps.short-sha.outputs.sha }}-${{ env.APP_NAME }}:${{ github.sha }} .
 
     - name: Push Docker Images
-      run: docker push asia-docker.pkg.dev/flik-infra/dev/${{ steps.short-sha.outputs.sha }}-gcp-util:${{ github.sha }}
+      run: docker push asia-docker.pkg.dev/flik-infra/dev/${{ steps.short-sha.outputs.sha }}-${{ env.APP_NAME }}:${{ github.sha }}
 
     - id: 'deploy'
       uses: 'google-github-actions/deploy-cloudrun@v1'
       with:
-        service: ${{ steps.short-sha.outputs.sha }}-gcp-util
-        image: 'asia-docker.pkg.dev/flik-infra/dev/${{ steps.short-sha.outputs.sha }}-gcp-util:${{ github.sha }}'
+        service: ${{ steps.short-sha.outputs.sha }}-${{ env.APP_NAME }}
+        image: 'asia-docker.pkg.dev/flik-infra/dev/${{ steps.short-sha.outputs.sha }}-${{ env.APP_NAME }}:${{ github.sha }}'
         region: asia-southeast2
         project_id: flik-infra
         flags: |
@@ -129,3 +131,18 @@ jobs:
             repo: context.repo.repo,
             body: '👋 ${{ steps.deploy.outputs.url }}'
           })
+
+  delete_pr:
+    if: github.event.pull_request.merged
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: benjlevesque/short-sha@v2.2
+        id: short-sha
+        with:
+          length: 7
+
+      - name: Delete Cloud Run service
+        run: |
+          gcloud run services delete ${{ steps.short-sha.outputs.sha }}-${{ env.APP_NAME }} --platform managed --region asia-southeast2 --project flik-infra --quiet
+    
