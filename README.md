@@ -2,6 +2,4 @@
 
 TEST
 tt
-teresssasd
-teswww
-tesswewewew
+teresss

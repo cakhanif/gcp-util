@@ -46,6 +46,9 @@ jobs:
       id: short-sha
       with:
         length: 5
+        
+    - uses: xt0rted/pull-request-comment-branch@v2
+      id: comment-branch
 
     - name: Test
       run: | 
@@ -55,7 +58,7 @@ jobs:
         echo ${{ github.event.number }}
         echo ${{ github.event.base_ref}}
         echo ${{ github.base_ref}}
-        echo ${{ github.event.ref }}
+        echo ${{ steps.comment-branch.outputs.head_ref }}
   
     - name: Login to GAR
       id: login-gar
@@ -66,30 +69,46 @@ jobs:
         password: ${{ steps.auth.outputs.access_token }}
 
     - name: Build Docker Image
-      run: docker build -t asia-docker.pkg.dev/flik-infra/dev/${{ env.APP_NAME }}-${{ github.event.number }}:${{ github.sha }} .
+      run: docker build -t asia-docker.pkg.dev/flik-infra/dev/${{ env.APP_NAME }}-${{ steps.comment-branch.outputs.head_ref }}:${{ github.sha }} .
 
     - name: Push Docker Images
-      run: docker push asia-docker.pkg.dev/flik-infra/dev/${{ env.APP_NAME }}-${{ github.event.number }}:${{ github.sha }}
+      run: docker push asia-docker.pkg.dev/flik-infra/dev/${{ env.APP_NAME }}-${{ steps.comment-branch.outputs.head_ref }}:${{ github.sha }}
 
     - id: 'deploy'
       uses: 'google-github-actions/deploy-cloudrun@v1'
       with:
-        service: ${{ env.APP_NAME }}-${{ github.event.number }}
-        image: 'asia-docker.pkg.dev/flik-infra/dev/${{ env.APP_NAME }}-${{ github.event.number }}:${{ github.sha }}'
+        service: ${{ env.APP_NAME }}-${{ steps.comment-branch.outputs.head_ref }}
+        image: 'asia-docker.pkg.dev/flik-infra/dev/${{ env.APP_NAME }}-${{ steps.comment-branch.outputs.head_ref }}:${{ github.sha }}'
         region: asia-southeast2
         project_id: flik-infra
         flags: |
           --allow-unauthenticated
 
-    - uses: actions/github-script@v3
+    # - uses: actions/github-script@v3
+    #   with:
+    #     github-token: ${{secrets.GITHUB_TOKEN}}
+    #     script: |
+    #       github.issues.createComment({
+    #         issue_number: context.issue.number,
+    #         owner: context.repo.owner,
+    #         repo: context.repo.repo,
+    #         body: '👋 ${{ steps.deploy.outputs.url }}'
+    #       })
+
+    - name: Add comment to PR
+      uses: actions/github-script@v6
+      if: always()
       with:
-        github-token: ${{secrets.GITHUB_TOKEN}}
         script: |
-          github.issues.createComment({
+          const url = '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}';
+          const success = '${{ job.status }}' === 'success';
+          const body = `${success ? '${{ steps.deploy.outputs.url }} ✅' : 'failed ❌'}\n${url}`;
+
+          await github.rest.issues.createComment({
             issue_number: context.issue.number,
             owner: context.repo.owner,
             repo: context.repo.repo,
-            body: '👋 ${{ steps.deploy.outputs.url }}'
+            body: body
           })
 
   delete_pr:
