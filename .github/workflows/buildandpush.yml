@@ -47,8 +47,8 @@ jobs:
       with:
         app_name: ${{ env.APP_NAME }}
         gar_registry_url: ${{ env.GAR_URL }}
-        docker_user: ${{ secrets.DOCKERUSERNAME }}
-        docker_token: ${{ secrets.DOCKERTOKEN }} 
+        docker_user: ${{ secrets.DOCKER_USER }}
+        docker_token: ${{ secrets.DOCKER_TOKEN }} 
 
     - name: Build and Deploy service
       id: docker
