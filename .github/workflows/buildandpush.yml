@@ -15,6 +15,14 @@ permissions:
 
 env:
   APP_NAME: "gcp-util"
+  GAR_URL: "asia-docker.pkg.dev"
+  PROJECT_ID: "flik-dev"
+  GAR_PROJECT_ID: "flik-infra"
+  REGION: "asia-southeast2"
+  VPC: "development-vpc-connector"
+  INFRA_PROJECT_ID: "flik-infra"
+  ENVIRONMENT: "dev"
+  
 jobs:
 
   deploy_pr:
@@ -25,119 +33,70 @@ jobs:
     - name: Checkout Code
       uses: actions/checkout@v4.1.0
 
-    - id: 'auth'
-      name: 'Authenticate to Google Cloud'
-      uses: 'google-github-actions/auth@v1'
+    - name: Checkout CI/CD Repository
+      uses: actions/checkout@v4
+      with: 
+        repository: useflik/flik-cicd
+        ref: main
+        token: ${{secrets.GITHUB_TOKEN}}
+        path: ./.github/actions/cicd
+
+    - name: GCP Preparation
+      uses: ./.github/actions/cicd/action/prepare/gcp
+      id: gcp_prep
       with:
-        token_format: 'access_token'
-        workload_identity_provider: 'projects/397995110920/locations/global/workloadIdentityPools/flik-workload-identity-pool-cicd/providers/flik-wip-provider-github-action'
-        service_account: 'flik-external-sa-github-action@flik-infra.iam.gserviceaccount.com'
+        app_name: ${{ env.APP_NAME }}
+        gar_registry_url: ${{ env.GAR_URL }}
+        docker_user: ${{ secrets.DOCKERUSERNAME }}
+        docker_token: ${{ secrets.DOCKERTOKEN }} 
 
-    - name: Setup GCP SDK
-      uses: google-github-actions/setup-gcloud@v1
+    - name: Build and Deploy service
+      id: docker
+      uses: ./.github/actions/cicd/action/pullrequest
       with:
-        project_id: flik-infra
-    
-    - name: Get branch names
-      id: branch-name
-      uses: tj-actions/branch-names@v7
-      
-    - uses: benjlevesque/short-sha@v2.2
-      id: short-sha
-      with:
-        length: 5
+        app_name: ${{ env.APP_NAME }}-${{ steps.comment-branch.outputs.head_ref }}
+        environment: ${{ env.ENVIRONMENT }}
+        gar_registry_url: ${{ env.GAR_URL }}
+        gar_project_id: ${{ env.GAR_PROJECT_ID }}
+        gcp_project_id: ${{ env.PROJECT_ID }}
+        gcp_region: ${{ env.REGION }}
+        gcp_vpc_connector: ${{ env.VPC }}
+        gcp_vpc_egress: "all"
+        port: "8080"
+        cloudrun_env_vars: |
+          env=${{ env.ENVIRONMENT }}
+        gh_user: "cakhanif"
+        gh_token: ${{secrets.GITHUB_TOKEN}}
 
-    - uses: xt0rted/pull-request-comment-branch@v2
-      id: comment-branch
-
-    - name: Test
-      run: | 
-        echo ${{ github.event.pull_request.head }}
-        echo ${{ github.head_ref }}
-        echo ${{ github.event.pull_request.number }}
-        echo ${{ github.event.number }}
-        echo ${{ github.event.base_ref}}
-        echo ${{ github.base_ref}}
-        echo ${{ steps.comment-branch.outputs.head_ref }}
-  
-    - name: Login to GAR
-      id: login-gar
-      uses: docker/login-action@v3
-      with:
-        registry: asia-docker.pkg.dev/flik-infra
-        username: oauth2accesstoken
-        password: ${{ steps.auth.outputs.access_token }}
-
-    - name: Build Docker Image
-      run: docker build -t asia-docker.pkg.dev/flik-infra/dev/${{ env.APP_NAME }}-${{ steps.comment-branch.outputs.head_ref }}:${{ github.sha }} .
-
-    - name: Push Docker Images
-      run: docker push asia-docker.pkg.dev/flik-infra/dev/${{ env.APP_NAME }}-${{ steps.comment-branch.outputs.head_ref }}:${{ github.sha }}
-
-    - id: 'deploy'
-      uses: 'google-github-actions/deploy-cloudrun@v1'
-      with:
-        service: ${{ env.APP_NAME }}-${{ steps.comment-branch.outputs.head_ref }}
-        image: 'asia-docker.pkg.dev/flik-infra/dev/${{ env.APP_NAME }}-${{ steps.comment-branch.outputs.head_ref }}:${{ github.sha }}'
-        region: asia-southeast2
-        project_id: flik-infra
-        flags: |
-          --allow-unauthenticated
-
-    # - uses: actions/github-script@v3
-    #   with:
-    #     github-token: ${{secrets.GITHUB_TOKEN}}
-    #     script: |
-    #       github.issues.createComment({
-    #         issue_number: context.issue.number,
-    #         owner: context.repo.owner,
-    #         repo: context.repo.repo,
-    #         body: '👋 ${{ steps.deploy.outputs.url }}'
-    #       })
-
-    - name: Add comment to PR
-      uses: actions/github-script@v6
-      if: always()
-      with:
-        script: |
-          const url = '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}';
-          const success = '${{ job.status }}' === 'success';
-          const body = `${success ? '${{ steps.deploy.outputs.url }} ✅' : 'failed ❌'}\nAction Log ${url}`;
-
-          await github.rest.issues.createComment({
-            issue_number: context.issue.number,
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            body: body
-          })
 
   delete_pr:
     if: github.event.pull_request.merged == true || github.event.issue.pull_request && contains(github.event.comment.body, '/delete_deploy')
     runs-on: ubuntu-latest
 
     steps:
-      - uses: benjlevesque/short-sha@v2.2
-        id: short-sha
-        with:
-          length: 5
+      - name: Checkout CI/CD Repository
+        if: 
+        uses: actions/checkout@v4
+        with: 
+          repository: useflik/flik-cicd
+          ref: main
+          token: ${{secrets.GITHUB_TOKEN}}
+          path: ./.github/actions/cicd
 
-      - id: 'auth'
-        name: 'Authenticate to Google Cloud'
-        uses: 'google-github-actions/auth@v1'
+      - name: GCP Preparation
+        uses: ./.github/actions/cicd/action/prepare/gcp
+        id: gcp_prep
         with:
-          token_format: 'access_token'
-          workload_identity_provider: 'projects/397995110920/locations/global/workloadIdentityPools/flik-workload-identity-pool-cicd/providers/flik-wip-provider-github-action'
-          service_account: 'flik-external-sa-github-action@flik-infra.iam.gserviceaccount.com'
+          app_name: ${{ env.APP_NAME }}
+          gar_registry_url: ${{ env.GAR_URL }}
+          docker_user: ${{ secrets.DOCKERUSERNAME }}
+          docker_token: ${{ secrets.DOCKERTOKEN }}      
 
-      - name: Setup GCP SDK
-        uses: google-github-actions/setup-gcloud@v1
-        with:
-          project_id: flik-infra
       
       - uses: xt0rted/pull-request-comment-branch@v2
         id: comment-branch
 
       - name: Delete Cloud Run service
         run: |
-          gcloud run services delete ${{ env.APP_NAME }}-${{ steps.comment-branch.outputs.head_ref }} --platform managed --region asia-southeast2 --project flik-infra --quiet
+          gcloud run services delete ${{ env.APP_NAME }}-${{ steps.comment-branch.outputs.head_ref }} --platform managed --region ${{ env.REGION }} --project ${{ env.PROJECT_ID }} --quiet
     
